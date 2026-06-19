@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JuriMap | Cerus Securitizadora</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --orange:      #F08316;
+  --orange-dark: #C96A08;
+  --orange-light:#FFF0E0;
+  --orange-mid:  #FFD4A0;
+  --bg:          #F7F4F1;
+  --white:       #FFFFFF;
+  --border:      #E2D5C8;
+  --text:        #1C1008;
+  --muted:       #8B7355;
+  --card-shadow: 0 2px 12px rgba(28,16,8,0.07);
+  --map-empty:   #E0D5C8;
+  --map-filled0: #FFD4A0;
+  --map-filled1: #C96A08;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--white);
+  border-bottom: 2px solid var(--orange);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(240,131,22,0.1);
+}
+
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-mark {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+.logo h1 { font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -0.5px; }
+.logo h1 span { color: var(--orange); }
+.logo p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-meta { text-align: right; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.header-meta strong { color: var(--text); }
+.btn-admin {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 8px;
+  border: 1.5px solid var(--orange); color: var(--orange);
+  font-size: 12px; font-weight: 700; text-decoration: none;
+  transition: all 0.15s;
+}
+.btn-admin:hover { background: var(--orange); color: #fff; }
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filter-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-right: 4px; white-space: nowrap;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 20px; cursor: pointer;
+  font-size: 12px; font-weight: 600; border: 1.5px solid var(--border);
+  background: var(--white); color: var(--muted);
+  transition: all 0.15s; user-select: none; white-space: nowrap;
+}
+.chip:hover { border-color: var(--orange); color: var(--orange); }
+.chip.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.chip-todos { font-weight: 800; }
+.filter-info {
+  margin-left: auto; font-size: 11px; color: var(--muted);
+  background: var(--orange-light); padding: 4px 10px;
+  border-radius: 20px; white-space: nowrap; display: none;
+}
+.filter-info.show { display: inline-block; }
+
+/* ── PAGE ── */
+.page { padding: 24px 32px 48px; }
+
+/* ── KPI ROW ── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 20px; }
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+}
+.kpi::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--orange), var(--orange-mid));
+}
+.kpi-icon { font-size: 26px; margin-bottom: 10px; opacity: 0.85; }
+.kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+.kpi-value { font-size: 28px; font-weight: 900; color: var(--text); line-height: 1; }
+.kpi-value.accent { color: var(--orange); }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+/* ── CARD ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--card-shadow);
+}
+.card-title {
+  font-size: 14px; font-weight: 800; color: var(--text);
+  margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.card-title-icon { font-size: 16px; }
+
+/* ── MAIN ROW ── */
+.main-row { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+
+/* ── MAP ── */
+#map-wrap {
+  position: relative;
+  height: 580px;
+  background: linear-gradient(135deg, #FFF8F2 0%, #FFF0E0 100%);
+  border-radius: 10px;
+  overflow: hidden;
+}
+#brazil-svg { width: 100%; height: 100%; display: block; }
+
+.s-path {
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: pointer;
+  transition: filter 0.2s, stroke-width 0.2s;
+}
+.s-path:hover {
+  stroke: var(--orange-dark) !important;
+  stroke-width: 2.5 !important;
+  filter: brightness(1.15) drop-shadow(0 3px 10px rgba(240,131,22,0.45));
+}
+.s-label {
+  font-size: 7.5px;
+  fill: rgba(28,16,8,0.5);
+  pointer-events: none;
+  text-anchor: middle;
+  font-weight: 700;
+}
+
+/* Map legend */
+.map-legend {
+  position: absolute; bottom: 14px; left: 14px;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 11px; color: var(--muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.legend-bar { width: 120px; height: 8px; border-radius: 4px; margin: 6px 0 4px; }
+.legend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+.map-loading {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  color: var(--muted); font-size: 13px;
+}
+.spinner {
+  width: 32px; height: 32px; border: 3px solid var(--orange-mid);
+  border-top-color: var(--orange); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TOOLTIP ── */
+#tip {
+  position: fixed;
+  background: var(--white);
+  border: 1.5px solid var(--orange);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 500;
+  min-width: 220px;
+  max-width: 260px;
+  box-shadow: 0 8px 28px rgba(240,131,22,0.2);
+}
+#tip.show { opacity: 1; }
+.tip-title {
+  font-weight: 800; font-size: 14px; color: var(--text);
+  margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tip-row { display: flex; justify-content: space-between; gap: 12px; margin: 4px 0; }
+.tip-label { color: var(--muted); }
+.tip-val { font-weight: 800; color: var(--orange); }
+.tip-firms { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.tip-firm { font-size: 11px; color: var(--muted); padding: 2px 0; display: flex; justify-content: space-between; }
+.tip-firm span { font-weight: 700; color: var(--text); }
+
+.clear-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-size: 11px; padding: 3px 10px;
+  border-radius: 6px; cursor: pointer; transition: all 0.15s;
+}
+.clear-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+/* ── CHARTS ── */
+.bottom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chart-wrap { height: 240px; position: relative; }
+
+/* ── TABLE ── */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 10px 14px;
+  color: var(--muted); font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+  background: #FAFAF8;
+}
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--orange-light); }
+.rank { font-weight: 900; font-size: 12px; color: var(--muted); }
+.rank.gold { color: #C96A08; }
+.rank.silver { color: #8B7355; }
+.rank.bronze { color: #A0522D; }
+.state-tag {
+  display: inline-block; font-size: 10px; padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--orange-light); color: var(--orange-dark);
+  font-weight: 700; margin: 1px;
+}
+.bar-track { height: 6px; background: var(--border); border-radius: 3px; min-width: 80px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--orange-dark)); border-radius: 3px; }
+.pct-label { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--orange-mid); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <img class="logo-mark" src="logo.png.png" alt="Cerus">
+    <div>
+      <h1>Juri<span>Map</span></h1>
+      <p>Cerus Securitizadora · Recuperação de Crédito Condominial</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="header-meta">
+      Atualizado em <strong id="last-update">—</strong><br>
+      Carteira ativa · Dados internos
+    </div>
+    <a href="admin.html" class="btn-admin">⚙ Admin</a>
+  </div>
+</header>
+
+<!-- Barra de filtro por escritório -->
+<div class="filter-bar" id="filter-bar">
+  <span class="filter-label">Filtrar:</span>
+  <span class="chip chip-todos active" id="chip-todos" onclick="toggleTodos()">Todos</span>
+  <span class="filter-info" id="filter-info"></span>
+</div>
+
+<div class="page">
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-label">Escritórios Parceiros</div>
+      <div class="kpi-value" id="k-firms">—</div>
+      <div class="kpi-sub" id="k-firms-sub">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-icon">📍</div>
+      <div class="kpi-label">Estados Atendidos</div>
+      <div class="kpi-value" id="k-states">—</div>
+      <div class="kpi-sub">de 26 estados + DF</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-label">Total de Processos</div>
+      <div class="kpi-value accent" id="k-proc">—</div>
+      <div class="kpi-sub" id="k-proc-sub">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Valor Total Ajuizado</div>
+      <div class="kpi-value accent" id="k-valor">—</div>
+      <div class="kpi-sub">em toda a carteira</div>
+    </div>
+  </div>
+
+  <!-- Mapa + Lista -->
+  <div class="main-row">
+    <div class="card">
+      <div class="card-title">
+        <span><span class="card-title-icon">🗺️</span> Mapa de Processos por Estado</span>
+        <button class="clear-btn" id="clear-btn" style="display:none" onclick="clearFilter()">✕ Limpar filtro</button>
+      </div>
+      <div id="map-wrap">
+        <div class="map-loading" id="map-loading">
+          <div class="spinner"></div>
+          <span>Carregando mapa do Brasil…</span>
+        </div>
+        <svg id="brazil-svg"></svg>
+        <div class="map-legend">
+          <div style="font-weight:700;color:var(--text);margin-bottom:4px;">Processos por Estado</div>
+          <div class="legend-bar" id="legend-bar"></div>
+          <div class="legend-ends"><span>0</span><span id="legend-max">—</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Gráficos -->
+  <div class="bottom-row">
+    <div class="card">
+      <div class="card-title"><span class="card-title-icon">🏢</span> Condomínios por Escritório</div>
+      <div class="chart-wrap"><canvas id="pizza-cond"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-title-icon">🍩</span> Processos por Escritório</div>
+      <div class="chart-wrap"><canvas id="donut"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="card-title-icon">📊</span> Processos por Estado</div>
+      <div class="chart-wrap"><canvas id="bar"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Ranking -->
+  <div class="card">
+    <div class="card-title"><span class="card-title-icon">🏆</span> Ranking de Escritórios — Processos &amp; Valor Ajuizado</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Escritório</th>
+            <th>Estados</th>
+            <th>Processos</th>
+            <th>Valor Ajuizado</th>
+            <th style="min-width:130px">Participação</th>
+          </tr>
+        </thead>
+        <tbody id="rank-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="tip"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   DEFAULT DATA
+═══════════════════════════════════════ */
+const FIRMS_DEFAULT = [
+  { id:'cerus',    name:'Cerus Negociação',  condominios:657, totalP:10000, totalV:50000000, states:{CE:{p:5000,v:30000000},BA:{p:3000,v:15000000},PR:{p:1000,v:2000000},PB:{p:500,v:1000000},AM:{p:500,v:2000000}} },
+  { id:'ws',       name:'WS Cobrança',       condominios:201, totalP:2000,  totalV:5000000,  states:{CE:{p:1000,v:2500000},GO:{p:500,v:1000000},PE:{p:40,v:750000},MS:{p:450,v:650000},SP:{p:10,v:100000}} },
+  { id:'pinheiro', name:'Pinheiro Brito',    condominios:49,  totalP:1500,  totalV:5500000,  states:{BA:{p:1500,v:1500000}} },
+  { id:'mvb',      name:'MVB',               condominios:43,  totalP:1000,  totalV:3500000,  states:{BA:{p:1000,v:1000000}} },
+  { id:'melo',     name:'Melo e Melo',       condominios:55,  totalP:750,   totalV:2500000,  states:{GO:{p:500,v:1000000},MT:{p:200,v:1000000},MS:{p:50,v:500000}} },
+  { id:'penedo',   name:'Penedo Ltda',       condominios:70,  totalP:450,   totalV:4000000,  states:{MG:{p:50,v:0},ES:{p:400,v:4000000}} },
+  { id:'donum',    name:'Donum Credit',      condominios:32,  totalP:200,   totalV:2000000,  states:{CE:{p:100,v:1000000},BA:{p:100,v:1000000}} },
+  { id:'cm',       name:'CM Baiak',          condominios:34,  totalP:200,   totalV:400000,   states:{PR:{p:200,v:400000}} },
+  { id:'bb',       name:'BB Adv',            condominios:43,  totalP:150,   totalV:1500000,  states:{CE:{p:100,v:1000000},MA:{p:50,v:500000}} },
+  { id:'hef',      name:'HeF Consultoria',   condominios:7,   totalP:15,    totalV:300000,   states:{PE:{p:15,v:300000}} },
+  { id:'rct',      name:'RCT',               condominios:7,   totalP:10,    totalV:150000,   states:{DF:{p:10,v:150000}} },
+  { id:'mca',      name:'MCA',               condominios:1,   totalP:5,     totalV:100000,   states:{GO:{p:5,v:100000}} },
+  { id:'burket',   name:'Burket & Ferreira', condominios:1,   totalP:1,     totalV:10000,    states:{SP:{p:1,v:10000}} },
+  { id:'raiol',    name:'Raiol & Pimentel',  condominios:0,   totalP:0,     totalV:0,        states:{PA:{p:0,v:0}} }
+];
+
+const UF_NAMES = {
+  AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',
+  DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',
+  MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',
+  PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',
+  RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',
+  SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'
+};
+
+const REGION = {
+  AC:'N',AM:'N',AP:'N',PA:'N',RO:'N',RR:'N',TO:'N',
+  AL:'NE',BA:'NE',CE:'NE',MA:'NE',PB:'NE',PE:'NE',PI:'NE',RN:'NE',SE:'NE',
+  DF:'CO',GO:'CO',MT:'CO',MS:'CO',
+  ES:'SE',MG:'SE',RJ:'SE',SP:'SE',
+  PR:'S',RS:'S',SC:'S'
+};
+
+const COLORS = [
+  '#F08316','#E06A00','#FFB347','#4CAF82','#2196F3',
+  '#9C27B0','#00BCD4','#E91E63','#795548','#607D8B',
+  '#CDDC39','#009688','#673AB7','#F44336'
+];
+
+/* ═══════════════════════════════════════
+   FORMATTERS
+═══════════════════════════════════════ */
+const fN = n => (Number(n)||0).toLocaleString('pt-BR');
+const fV = v => {
+  v = Number(v)||0;
+  if (v >= 1e6) return 'R$ '+(v/1e6).toFixed(2).replace('.',',')+' M';
+  if (v >= 1e3) return 'R$ '+(v/1e3).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+' K';
+  return 'R$ '+v.toLocaleString('pt-BR');
+};
+
+/* ═══════════════════════════════════════
+   MUTABLE STATE
+═══════════════════════════════════════ */
+let FIRMS = [];
+let byState = {};
+let TOTAL_P = 0, TOTAL_V = 0, ACTIVE_F = 0, ACTIVE_S = 0, MAX_P = 1;
+let colorScale;
+let sortedFirms = [];
+let activeFirm = null;
+let selectedFirms = new Set(); // vazio = Todos
+let _lastUpdate = null;
+let chartInstances = {};
+
+function getFilteredFirms() {
+  return selectedFirms.size === 0 ? FIRMS : FIRMS.filter(f => selectedFirms.has(f.id));
+}
+
+function computeFromFirms() {
+  const firms = getFilteredFirms();
+  Object.keys(byState).forEach(k => delete byState[k]);
+  firms.forEach(f => {
+    Object.entries(f.states).forEach(([uf, d]) => {
+      if (!byState[uf]) byState[uf] = { p:0, v:0, firms:[] };
+      byState[uf].p += d.p;
+      byState[uf].v += d.v;
+      if (d.p > 0) byState[uf].firms.push({ name:f.name, p:d.p, v:d.v });
+    });
+  });
+  TOTAL_P = firms.reduce((s,f) => s+f.totalP, 0);
+  TOTAL_V = firms.reduce((s,f) => s+f.totalV, 0);
+  ACTIVE_F = firms.filter(f=>f.totalP>0).length;
+  ACTIVE_S = Object.keys(byState).filter(k=>byState[k].p>0).length;
+  MAX_P = Math.max(...Object.values(byState).map(d=>d.p), 1);
+  colorScale = d3.scaleSequential()
+    .domain([0, MAX_P])
+    .interpolator(d3.interpolate('#FFD4A0', '#C96A08'));
+  sortedFirms = [...firms].sort((a,b) => b.totalP - a.totalP);
+}
+
+function renderKPIs(lastUpdate) {
+  const isFiltered = selectedFirms.size > 0;
+  document.getElementById('k-firms').textContent = ACTIVE_F;
+  document.getElementById('k-firms-sub').textContent = isFiltered
+    ? selectedFirms.size + ' de ' + FIRMS.length + ' escritórios'
+    : FIRMS.length + ' escritórios cadastrados';
+  document.getElementById('k-states').textContent = ACTIVE_S;
+  document.getElementById('k-proc').textContent = fN(TOTAL_P);
+  document.getElementById('k-proc-sub').textContent = 'em ' + ACTIVE_S + ' estados';
+  document.getElementById('k-valor').textContent = fV(TOTAL_V);
+  document.getElementById('legend-max').textContent = fN(MAX_P);
+  document.getElementById('legend-bar').style.background =
+    'linear-gradient(to right, #FFD4A0, #C96A08)';
+  if (lastUpdate !== undefined) {
+    document.getElementById('last-update').textContent = lastUpdate
+      ? new Date(lastUpdate+'T12:00:00').toLocaleDateString('pt-BR')
+      : new Date().toLocaleDateString('pt-BR');
+  }
+}
+
+function clearFilter() {
+  activeFirm = null;
+  document.getElementById('clear-btn').style.display = 'none';
+  updateMapColors();
+}
+
+/* ── FILTRO POR ESCRITÓRIO ── */
+function buildFilterChips() {
+  const bar = document.getElementById('filter-bar');
+  // remove chips antigos (mantém label, chip-todos e filter-info)
+  bar.querySelectorAll('.chip:not(.chip-todos)').forEach(c => c.remove());
+  const info = document.getElementById('filter-info');
+
+  FIRMS.forEach((f, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.dataset.id = f.id;
+    chip.innerHTML = `<span class="chip-dot" style="background:${COLORS[i % COLORS.length]}"></span>${f.name}`;
+    chip.addEventListener('click', () => toggleFirmChip(f.id, chip));
+    bar.insertBefore(chip, info);
+  });
+}
+
+function toggleFirmChip(id, el) {
+  if (selectedFirms.has(id)) {
+    selectedFirms.delete(id);
+    el.classList.remove('active');
+  } else {
+    selectedFirms.add(id);
+    el.classList.add('active');
+  }
+  document.getElementById('chip-todos').classList.toggle('active', selectedFirms.size === 0);
+  updateFilterInfo();
+  refresh();
+}
+
+function toggleTodos() {
+  selectedFirms.clear();
+  document.querySelectorAll('.chip:not(.chip-todos)').forEach(c => c.classList.remove('active'));
+  document.getElementById('chip-todos').classList.add('active');
+  updateFilterInfo();
+  refresh();
+}
+
+function updateFilterInfo() {
+  const info = document.getElementById('filter-info');
+  if (selectedFirms.size === 0) {
+    info.classList.remove('show');
+  } else {
+    const names = FIRMS.filter(f => selectedFirms.has(f.id)).map(f => f.name.split(' ')[0]);
+    info.textContent = `Exibindo: ${names.join(', ')}`;
+    info.classList.add('show');
+  }
+}
+
+function refresh() {
+  computeFromFirms();
+  renderKPIs();
+  updateMapColors();
+  refreshCharts();
+  renderRanking();
+}
+
+function refreshCharts() {
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+  initCharts();
+}
+
+/* ═══════════════════════════════════════
+   MAP
+═══════════════════════════════════════ */
+function getUF(feature) {
+  const p = feature.properties;
+  return p.sigla || p.SIGLA || p.abbrev_state || p.UF || p.uf || '';
+}
+
+function stateColor(uf) {
+  if (activeFirm) {
+    const f = FIRMS.find(x => x.id === activeFirm);
+    return (f && f.states[uf] && f.states[uf].p > 0) ? '#F08316' : '#E8DDD5';
+  }
+  const d = byState[uf];
+  return (!d || d.p === 0) ? '#E0D5C8' : colorScale(d.p);
+}
+
+function updateMapColors() {
+  d3.selectAll('.s-path').attr('fill', d => stateColor(getUF(d)));
+}
+
+/* Tooltip */
+const tip = document.getElementById('tip');
+
+function showTip(e, uf) {
+  const d = byState[uf] || { p:0, v:0, firms:[] };
+  const name = UF_NAMES[uf] || uf;
+  const reg = REGION[uf] ? ` · Região ${REGION[uf]}` : '';
+  const firmsHtml = d.firms.length
+    ? d.firms.sort((a,b) => b.p - a.p).slice(0,5)
+        .map(f => `<div class="tip-firm">${f.name}<span>${fN(f.p)} proc.</span></div>`).join('')
+    : '<div style="font-size:11px;color:var(--muted);">Sem processos registrados</div>';
+
+  tip.innerHTML = `
+    <div class="tip-title">${name} (${uf})${reg ? '<br><span style="font-size:10px;font-weight:400;color:var(--muted)">'+reg+'</span>' : ''}</div>
+    <div class="tip-row"><span class="tip-label">Processos</span><span class="tip-val">${fN(d.p)}</span></div>
+    <div class="tip-row"><span class="tip-label">Valor ajuizado</span><span class="tip-val">${fV(d.v)}</span></div>
+    <div class="tip-firms">${firmsHtml}</div>
+  `;
+  tip.classList.add('show');
+  moveTip(e);
+}
+
+function moveTip(e) {
+  const x = Math.min(e.clientX + 18, window.innerWidth - 270);
+  const y = Math.max(e.clientY - 80, 8);
+  tip.style.left = x + 'px';
+  tip.style.top  = y + 'px';
+}
+
+function hideTip() { tip.classList.remove('show'); }
+
+async function initMap() {
+  const wrap = document.getElementById('map-wrap');
+  const W = wrap.offsetWidth;
+  const H = wrap.offsetHeight;
+  const svg = d3.select('#brazil-svg').attr('viewBox', `0 0 ${W} ${H}`);
+
+  let geo;
+  // Try local file first (always works, no CORS)
+  const sources = [
+    './brazil-states.geojson',
+    'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+  ];
+
+  for (const url of sources) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) { geo = await r.json(); break; }
+    } catch(e) { /* try next */ }
+  }
+
+  document.getElementById('map-loading').style.display = 'none';
+
+  if (!geo) {
+    wrap.innerHTML = '<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13px;"><span style="font-size:32px;">🗺️</span><span>Mapa indisponível.<br>Verifique sua conexão com a internet.</span></div>';
+    return;
+  }
+
+  const proj = d3.geoMercator().fitSize([W, H - 30], geo);
+  const path = d3.geoPath().projection(proj);
+
+  svg.selectAll('.s-path')
+    .data(geo.features)
+    .join('path')
+    .attr('class', 's-path')
+    .attr('d', path)
+    .attr('fill', d => stateColor(getUF(d)))
+    .on('mouseover', (e, d) => {
+      const uf = getUF(d);
+      if (uf) showTip(e, uf);
+      d3.select(e.target).raise();
+    })
+    .on('mousemove', (e) => moveTip(e))
+    .on('mouseleave', (e) => {
+      hideTip();
+    });
+
+  // State abbreviation labels
+  svg.selectAll('.s-label')
+    .data(geo.features)
+    .join('text')
+    .attr('class', 's-label')
+    .attr('transform', d => `translate(${path.centroid(d)})`)
+    .attr('dy', '0.35em')
+    .text(d => getUF(d));
+}
+
+/* ═══════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════ */
+function initCharts() {
+  const active = sortedFirms.filter(f => f.totalP > 0);
+
+  /* Donut */
+  chartInstances.donut = new Chart(document.getElementById('donut'), {
+    type: 'doughnut',
+    data: {
+      labels: active.map(f => f.name),
+      datasets: [{
+        data: active.map(f => f.totalP),
+        backgroundColor: COLORS.slice(0, active.length),
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color:'#8B7355', font:{size:10}, boxWidth:10, padding:6 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${fN(ctx.parsed)} proc. (${(ctx.parsed/TOTAL_P*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  /* Pizza — Condomínios por Escritório */
+  const activeCond = sortedFirms.filter(f => (f.condominios || 0) > 0);
+  chartInstances.pizzaCond = new Chart(document.getElementById('pizza-cond'), {
+    type: 'pie',
+    data: {
+      labels: activeCond.map(f => f.name),
+      datasets: [{
+        data: activeCond.map(f => f.condominios || 0),
+        backgroundColor: COLORS.slice(0, activeCond.length),
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color:'#8B7355', font:{size:10}, boxWidth:10, padding:6 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = activeCond.reduce((s,f) => s + (f.condominios||0), 0);
+              return ` ${ctx.parsed} cond. (${(ctx.parsed/total*100).toFixed(1)}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  /* Bar */
+  const sts = Object.entries(byState)
+    .filter(([,d]) => d.p > 0)
+    .sort((a,b) => b[1].p - a[1].p);
+
+  chartInstances.bar = new Chart(document.getElementById('bar'), {
+    type: 'bar',
+    data: {
+      labels: sts.map(([uf]) => uf),
+      datasets: [{
+        data: sts.map(([,d]) => d.p),
+        backgroundColor: '#F08316',
+        hoverBackgroundColor: '#C96A08',
+        borderRadius: 5, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => UF_NAMES[ctx[0].label] || ctx[0].label,
+            label: ctx => ` ${fN(ctx.parsed.y)} processos`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color:'#8B7355', font:{size:10} },
+          grid:  { color:'rgba(0,0,0,0.05)' },
+          border:{ color: '#E2D5C8' }
+        },
+        y: {
+          ticks: { color:'#8B7355', font:{size:10} },
+          grid:  { color:'rgba(0,0,0,0.05)' },
+          border:{ color: '#E2D5C8' }
+        }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════
+   RANKING
+═══════════════════════════════════════ */
+function renderRanking() {
+  const tbody = document.getElementById('rank-body');
+  tbody.innerHTML = '';
+  sortedFirms.forEach((f, i) => {
+    const pct = TOTAL_P > 0 ? (f.totalP/TOTAL_P*100) : 0;
+    const activeStates = Object.entries(f.states).filter(([,d])=>d.p>0).map(([uf])=>uf);
+    const rankClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="rank ${rankClass}">#${i+1}</span></td>
+      <td style="font-weight:700">${f.name}</td>
+      <td>${activeStates.map(uf=>`<span class="state-tag">${uf}</span>`).join('')||'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+      <td style="font-weight:800;color:var(--orange)">${fN(f.totalP)}</td>
+      <td style="color:var(--muted)">${fV(f.totalV)}</td>
+      <td>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="pct-label">${pct.toFixed(1)}%</div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ═══════════════════════════════════════
+   BOOT — carrega data.json ou usa padrão
+═══════════════════════════════════════ */
+async function boot() {
+  let lastUpdate = null;
+  try {
+    const r = await fetch('./data.json?t=' + Date.now());
+    if (r.ok) {
+      const d = await r.json();
+      if (Array.isArray(d.firms) && d.firms.length > 0) {
+        FIRMS = d.firms;
+        lastUpdate = d.lastUpdate || null;
+      } else {
+        FIRMS = JSON.parse(JSON.stringify(FIRMS_DEFAULT));
+      }
+    } else {
+      FIRMS = JSON.parse(JSON.stringify(FIRMS_DEFAULT));
+    }
+  } catch(e) {
+    FIRMS = JSON.parse(JSON.stringify(FIRMS_DEFAULT));
+  }
+
+  _lastUpdate = lastUpdate;
+  computeFromFirms();
+  buildFilterChips();
+  renderKPIs(lastUpdate);
+  initMap();
+  initCharts();
+  renderRanking();
+}
+
+boot();
+</script>
+</body>
+</html>
